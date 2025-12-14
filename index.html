@@ -1028,6 +1028,15 @@
             });
         }
 
+        function removeImage(idx) {
+            document.getElementById(`q-img-${idx}`).value = ""; // Clear hidden base64
+            const input = document.querySelector(`input[onchange="handleImageUpload(this, ${idx})"]`);
+            if (input) input.value = ""; // Clear file input
+            const preview = document.getElementById(`preview-img-${idx}`);
+            preview.src = "";
+            preview.style.display = 'none'; // Hide preview
+        }
+
         // --- EDITOR UI LOGIC ---
         function addQuestionRaw() {
             const container = document.getElementById('editor-container');
@@ -1041,7 +1050,10 @@
                 <!-- Image Upload -->
                 <div style="margin: 10px 0;">
                     <label>Image (Optional):</label>
-                    <input type="file" accept="image/*" onchange="handleImageUpload(this, ${idx})">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="file" accept="image/*" onchange="handleImageUpload(this, ${idx})">
+                        <button class="btn-secondary" style="width:auto; padding:5px 10px; font-size:0.8rem; background:#ef4444; border:none;" onclick="removeImage(${idx})">X</button>
+                    </div>
                     <input type="hidden" class="q-in-img" id="q-img-${idx}">
                     <img id="preview-img-${idx}" style="max-height:100px; display:none; margin-top:5px; border:1px solid #555;">
                 </div>
