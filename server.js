@@ -14,7 +14,7 @@ app.use(express.static(__dirname));
 
 // Serve okbı.html as the main entry point
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'okbı.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
