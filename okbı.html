@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GACA QUIZ</title>
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --main-accent: #3b82f6;
+            /* Neon Blue */
+            --sec-accent: #8b5cf6;
+            /* Neon Purple */
+            --danger: #ef4444;
+            --success: #22c55e;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text-color: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 40%);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .screen {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Screen Transitions */
+        .screen:not(.hidden) {
+            animation: screenEntry 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes screenEntry {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* --- UI COMPONENTS --- */
+        .card-box {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1,
+        h2,
+        h3 {
+            text-align: center;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--main-accent);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--main-accent), var(--sec-accent));
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.96) translateY(0) !important;
+            filter: brightness(0.9);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* --- ADMIN PANEL --- */
+        #screen-admin-setup,
+        #screen-admin-lobby,
+        #screen-game-host {
+            background: var(--bg-color);
+            /* Ensure opacity for performance */
+        }
+
+        .admin-section {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 24px;
+            margin-bottom: 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .player-chip {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            margin: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Quiz Editor */
+        .quiz-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .quiz-item input {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.1);
+            text-align: left;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* --- GAME & QUIZ --- */
+        .question-text {
+            background: rgba(255, 255, 255, 0.05);
+            /* Dark background */
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            font-size: 1.8rem;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 30px;
+            font-weight: 800;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+            max-width: 800px;
+            height: calc(100vh - 350px);
+            min-height: 300px;
+        }
+
+        .opt-btn {
+            font-size: 2rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .opt-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .opt-0 {
+            background: #ef4444;
+        }
+
+        .opt-1 {
+            background: #3b82f6;
+        }
+
+        .opt-2 {
+            background: #eab308;
+        }
+
+        .opt-3 {
+            background: #22c55e;
+        }
+
+        /* --- LISTS --- */
+        .history-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .history-item button {
+            width: auto;
+            padding: 6px 16px;
+            font-size: 0.85rem;
+            background: var(--main-accent);
+        }
+
+        /* --- QUIZ CARDS (HOME) --- */
+        .quiz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            padding: 20px 0;
+        }
+
+        .quiz-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            backdrop-filter: blur(10px);
+        }
+
+        .quiz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .quiz-card h3 {
+            font-size: 1.2rem;
+            text-align: left;
+            margin: 0;
+            background: none;
+            -webkit-text-fill-color: white;
+            color: white;
+        }
+
+        .quiz-meta {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .card-actions {
+            margin-top: auto;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SCREEN 1: MAIN ENTRY -->
+    <div id="screen-entry" class="screen">
+        <h1 style="font-size: 3rem; margin-bottom: 40px;">GACA QUIZ</h1>
+        <div class="card-box">
+            <button class="btn-primary" onclick="showHomeScreen()">COMMUNITY HOME</button>
+            <button class="btn-secondary" onclick="showJoinScreen()">JOIN GAME</button>
+            <button class="btn-secondary" onclick="attemptAdminAccess()">CREATE NEW</button>
+        </div>
+    </div>
+
+    <!-- SCREEN: HOME / DISCOVER -->
+    <div id="screen-home" class="screen hidden" style="justify-content: flex-start; overflow-y: auto;">
+        <div style="width: 100%; max-width: 1000px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Community Quizzes</h2>
+                <button class="btn-secondary" onclick="showScreen('screen-entry')"
+                    style="width: auto; padding: 10px 20px;">Back</button>
+            </div>
+
+            <div id="public-quiz-list" class="quiz-grid">
+                <!-- Cards injected here -->
+                <div style="grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5); padding: 50px;">
+                    Loading quizzes...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: JOIN MENU -->
+    <div id="screen-join-menu" class="screen hidden" style="justify-content: flex-start; padding-top: 50px;">
+        <div class="card-box" style="max-height: 80vh; justify-content: flex-start;">
+            <h2 style="color: white; text-align: center;">Join Game</h2>
+            <input type="text" id="join-pin" placeholder="Enter Host ID" maxlength="20">
+            <button class="btn-primary" onclick="joinLobby()">Enter</button>
+            <div id="join-error" style="color: var(--danger); margin-top: 5px; font-size: 0.9rem;"></div>
+
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px; padding-top: 20px;">
+                <label
+                    style="color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-bottom: 10px; display: block;">Active
+                    Rooms:</label>
+                <div id="room-history-list" style="overflow-y: auto; max-height: 200px;">
+                    <!-- Active rooms will go here -->
+                    <div style='color:rgba(255,255,255,0.5); text-align:center; font-size:0.8rem;'>Connecting to
+                        server...</div>
+                </div>
+                <button class="btn-secondary" onclick="refreshRooms()"
+                    style="margin-top: 10px; font-size: 0.9rem;">Refresh List</button>
+            </div>
+
+            <button class="btn-secondary" onclick="showScreen('screen-entry')" style="margin-top: auto;">Back</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: ADMIN SETUP -->
+    <div id="screen-admin-setup" class="screen hidden" style="justify-content: flex-start; overflow-y: auto;">
+        <div style="width: 100%; max-width: 800px; padding: 20px;">
+            <h2>Create New Game</h2>
+            <div class="admin-section">
+                <h3>1. Game Details</h3>
+                <label>Quiz Title:</label>
+                <input type="text" id="quiz-title" placeholder="e.g. Science Trivia" style="margin-bottom: 10px;">
+
+                <label>Max Players:</label>
+                <select id="room-capacity" style="border: 1px solid #ccc;">
+                    <option value="2">2 Players</option>
+                    <option value="4">4 Players</option>
+                    <option value="20" selected>20 Players</option>
+                    <option value="40">40 Players</option>
+                </select>
+
+                <label style="margin-top: 10px; display:block;">Room Password (Optional):</label>
+                <input type="text" id="room-password" placeholder="Leave empty for public" style="margin-bottom: 10px;">
+
+                <!-- Admin Key is now handled at entry -->
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                    <button class="btn-primary" onclick="createRoom()">Host Locally</button>
+                    <button class="btn-secondary" onclick="publishQuiz()"
+                        style="background: var(--sec-accent); border: none;">Publish to Home</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h3>2. Quiz Editor (Background)</h3>
+                <div id="editor-container"></div>
+                <button class="btn-secondary" onclick="addQuestionRaw()">+ Add Question</button>
+            </div>
+
+            <button class="btn-secondary" onclick="location.reload()" style="margin-top: 20px;">Back to Main</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: ADMIN LOBBY -->
+    <div id="screen-admin-lobby" class="screen hidden" style="justify-content: flex-start;">
+        <div class="card-box"
+            style="width: 100%; max-width: 800px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+            <h3>Hosting Game</h3>
+            <div style="font-size: 1.5rem; font-weight: bold; margin: 10px 0;">
+                Host ID: <span id="host-id-display" style="color: var(--main-accent);">...</span>
+            </div>
+            <div id="invite-link-area" class="hidden" style="margin-top: 20px;">
+                <label style="font-size: 0.9rem; color: rgba(255,255,255,0.7); display:block; margin-bottom:5px;">Invite
+                    Link:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="invite-link-input" readonly style="flex-grow: 1;">
+                    <button class="btn-secondary" onclick="copyInviteLink()" style="width: auto;">Copy</button>
+                </div>
+            </div>
+            <div>Players: <span id="player-count">0</span> / <span id="max-capacity-display">20</span></div>
+            <button class="btn-primary" onclick="startGame()"
+                style="width: auto; padding: 10px 30px; margin-top: 10px;">START GAME</button>
+        </div>
+        <div id="player-list" style="padding: 20px;">
+            <!-- Player chips -->
+        </div>
+    </div>
+
+    <!-- SCREEN 4: PLAYER LOBBY -->
+    <div id="screen-player-lobby" class="screen hidden">
+        <h2>Enter Nickname</h2>
+        <div class="card-box">
+            <input type="text" id="nickname" placeholder="Nickname">
+            <button class="btn-primary" onclick="sendNickname()">Ready!</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 5: WAITING -->
+    <div id="screen-waiting" class="screen hidden">
+        <h2 style="color: white;">You're in!</h2>
+        <div class="lobby-status" id="waiting-msg">See your name on screen?</div>
+    </div>
+
+    <!-- SCREEN 6: GAME (HOST VIEW) -->
+    <div id="screen-game-host" class="screen hidden"
+        style="justify-content: flex-start; overflow-y:auto; padding-top: 50px;">
+        <div style="padding: 20px; text-align: center; width: 100%;">
+            <h2 style="font-size: 2.5rem; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px;">Question
+                <span id="host-q-index">1</span>
+            </h2>
+
+            <img id="host-q-img"
+                style="max-height: 300px; max-width: 80%; margin: 0 auto 20px auto; border-radius: 10px; display: none;">
+
+            <div class="question-text" id="host-q-text" style="margin: 20px auto;">?</div>
+
+            <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 20px;">
+                <div
+                    style="background: rgba(255,255,255,0.1); color:white; padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    Time: <span id="host-timer" style="font-weight:bold; color:var(--main-accent);">30</span>
+                </div>
+                <div
+                    style="background: rgba(255,255,255,0.1); color:white; padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    Answers: <span id="host-answers" style="font-weight:bold; color:var(--main-accent);">0</span></div>
+            </div>
+
+            <button class="btn-primary" onclick="nextQuestion()" style="max-width: 200px;">Next Question / End</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 7: GAME (PLAYER VIEW) -->
+    <div id="screen-game-player" class="screen hidden" style="justify-content: flex-start; padding-top: 30px;">
+        <div id="player-q-text"
+            style="color: white; font-size: 1.5rem; text-align: center; margin-bottom: 20px; font-weight: bold; padding: 0 20px;">
+            Loading Question...</div>
+
+        <img id="player-q-img"
+            style="max-height: 200px; max-width: 90%; margin: 10px auto; border-radius: 10px; display: none;">
+
+        <div class="options-grid">
+            <button class="opt-btn opt-0" onclick="sendAnswer(0)">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                    <span style="font-size:1.5rem;">▲</span>
+                    <span id="p-opt-0" style="font-size:1rem; font-weight:600;">-</span>
+                </div>
+            </button>
+            <button class="opt-btn opt-1" onclick="sendAnswer(1)">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                    <span style="font-size:1.5rem;">◆</span>
+                    <span id="p-opt-1" style="font-size:1rem; font-weight:600;">-</span>
+                </div>
+            </button>
+            <button class="opt-btn opt-2" onclick="sendAnswer(2)">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                    <span style="font-size:1.5rem;">●</span>
+                    <span id="p-opt-2" style="font-size:1rem; font-weight:600;">-</span>
+                </div>
+            </button>
+            <button class="opt-btn opt-3" onclick="sendAnswer(3)">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                    <span style="font-size:1.5rem;">■</span>
+                    <span id="p-opt-3" style="font-size:1rem; font-weight:600;">-</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- SCREEN 9: SOLO GAME -->
+    <div id="screen-game-solo" class="screen hidden" style="justify-content: flex-start; padding-top: 30px;">
+        <div
+            style="display:flex; justify-content:space-between; width:100%; max-width:800px; padding:0 20px; color:white; font-size:1.2rem; font-weight:bold;">
+            <span>Score: <span id="solo-score">0</span></span>
+            <span>Time: <span id="solo-timer">30</span></span>
+        </div>
+        <div id="solo-q-text" class="question-text" style="font-size: 1.5rem; margin-top: 20px;">Loading...</div>
+
+        <div class="options-grid">
+            <button class="opt-btn opt-0" onclick="handleSoloAnswer(0)"><span id="s-opt-0">-</span></button>
+            <button class="opt-btn opt-1" onclick="handleSoloAnswer(1)"><span id="s-opt-1">-</span></button>
+            <button class="opt-btn opt-2" onclick="handleSoloAnswer(2)"><span id="s-opt-2">-</span></button>
+            <button class="opt-btn opt-3" onclick="handleSoloAnswer(3)"><span id="s-opt-3">-</span></button>
+        </div>
+        <div id="solo-feedback"
+            style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:30px; border-radius:20px; font-size:2rem; font-weight:bold; display:none; pointer-events:none;">
+            Correct!</div>
+    </div>
+
+    <!-- SCREEN 9: SOLO GAME -->
+    <div id="screen-game-solo" class="screen hidden" style="justify-content: flex-start; padding-top: 30px;">
+        <div
+            style="display:flex; justify-content:space-between; width:100%; max-width:800px; padding:0 20px; color:white; font-size:1.2rem; font-weight:bold;">
+            <span>Score: <span id="solo-score">0</span></span>
+            <span>Time: <span id="solo-timer">30</span></span>
+        </div>
+        <div id="solo-q-text" class="question-text" style="font-size: 1.5rem; margin-top: 20px;">Loading...</div>
+
+        <img id="solo-q-img"
+            style="max-height: 200px; max-width: 90%; margin: 10px auto; border-radius: 10px; display: none;">
+
+        <div class="options-grid">
+            <button class="opt-btn opt-0" onclick="handleSoloAnswer(0)"><span id="s-opt-0">-</span></button>
+            <button class="opt-btn opt-1" onclick="handleSoloAnswer(1)"><span id="s-opt-1">-</span></button>
+            <button class="opt-btn opt-2" onclick="handleSoloAnswer(2)"><span id="s-opt-2">-</span></button>
+            <button class="opt-btn opt-3" onclick="handleSoloAnswer(3)"><span id="s-opt-3">-</span></button>
+        </div>
+        <div id="solo-feedback"
+            style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:30px; border-radius:20px; font-size:2rem; font-weight:bold; display:none; pointer-events:none;">
+            Correct!</div>
+    </div>
+
+    <!-- SCREEN 9: SOLO GAME -->
+    <div id="screen-game-solo" class="screen hidden" style="justify-content: flex-start; padding-top: 30px;">
+        <div
+            style="display:flex; justify-content:space-between; width:100%; max-width:800px; padding:0 20px; color:white; font-size:1.2rem; font-weight:bold;">
+            <span>Score: <span id="solo-score">0</span></span>
+            <span>Time: <span id="solo-timer">30</span></span>
+        </div>
+        <div id="solo-q-text" class="question-text" style="font-size: 1.5rem; margin-top: 20px;">Loading...</div>
+
+        <div class="options-grid">
+            <button class="opt-btn opt-0" onclick="handleSoloAnswer(0)"><span id="s-opt-0">-</span></button>
+            <button class="opt-btn opt-1" onclick="handleSoloAnswer(1)"><span id="s-opt-1">-</span></button>
+            <button class="opt-btn opt-2" onclick="handleSoloAnswer(2)"><span id="s-opt-2">-</span></button>
+            <button class="opt-btn opt-3" onclick="handleSoloAnswer(3)"><span id="s-opt-3">-</span></button>
+        </div>
+        <div id="solo-feedback"
+            style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:30px; border-radius:20px; font-size:2rem; font-weight:bold; display:none; pointer-events:none;">
+            Correct!</div>
+    </div>
+
+    <!-- SCREEN 8: RESULTS -->
+    <div id="screen-result" class="screen hidden">
+        <h1 style="color: white; font-size: 3rem;">Game Over</h1>
+        <div id="result-text" style="color: white; font-size: 1.5rem; margin-top: 20px;"></div>
+        <button class="btn-white" onclick="location.reload()" style="max-width: 200px; margin-top: 50px;">Main
+            Menu</button>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let socket;
+        try {
+            socket = io();
+        } catch (e) {
+            console.error("Socket.io not loaded", e);
+            alert("Error: Socket.io not loaded. Make sure you are accessing this via http://localhost:3000 and the server is running.");
+        }
+
+        let isHost = false;
+        let myId = null;
+        let currentRoomId = null;
+        let maxPlayers = 20;
+        let players = []; // For host to track locally
+
+        let quizData = [
+            { q: "Test Question 1?", options: ["A", "B", "C", "D"], correct: 0 },
+            { q: "Test Question 2?", options: ["X", "Y", "Z", "W"], correct: 1 }
+        ];
+
+        // Gatekeeper
+        window.currentAdminKey = null;
+
+        function attemptAdminAccess() {
+            const key = prompt("Enter Admin Password to Create/Edit:");
+            if (key === '1453') {
+                window.currentAdminKey = key;
+                showScreen('screen-admin-setup');
+                // Auto-fill hidden inputs if we rely on UI? 
+                // We will handle it in createRoom() logic to pull from window.currentAdminKey
+            } else {
+                alert("Access Denied! Incorrect Password.");
+            }
+        }
+
+
+        // --- INIT ---
+        window.onload = function () {
+            // Check URL params for room
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            if (roomId) {
+                // If ID is present, we could auto-join or pre-fill
+                currentRoomId = roomId;
+                // Maybe go straight to nick input if we have ID
+                // But let's just prefill specifically if they go to join screen, 
+                // OR we can handle it smartly:
+                // Let's just store it and when they click join, fill it.
+            }
+        };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function showJoinScreen() {
+            showScreen('screen-join-menu');
+            refreshRooms();
+        }
+
+        // --- ACTIVE ROOMS ---
+        function refreshRooms() {
+            socket.emit('join_check');
+        }
+
+        socket.on('rooms_list', (rooms) => {
+            const list = document.getElementById('room-history-list');
+            list.innerHTML = "";
+
+            if (rooms.length === 0) {
+                list.innerHTML = "<div style='color:rgba(255,255,255,0.7); text-align:center; font-size:0.8rem;'>No active rooms</div>";
+                return;
+            }
+
+            rooms.forEach(room => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                // Show LOCK icon if locked
+                const lockIcon = room.locked ? '<span style="color:#ef4444; margin-right:5px;">🔒</span>' : '';
+                div.innerHTML = `
+                    <span>${lockIcon}${room.id} (${room.count}/${room.capacity})</span>
+                    <button onclick="joinSpecific('${room.id}', ${room.locked})">Join</button>
+                `;
+                list.appendChild(div);
+            });
+        });
+
+        function joinSpecific(id, isLocked) {
+            document.getElementById('join-pin').value = id;
+            if (isLocked) {
+                // We will prompt for password in joinLobby if needed, or prompt here
+                // Let's store a flag or just handle it in joinLobby by reading room state? 
+                // Client doesn't know pw, so we just pass "true" to join logic to ask user.
+                // Simpler: Just focus input and let them click enter, but that won't ask for PW.
+                // Let's trigger joinLobby and let it handle "if room is locked" logic?
+                // But joinLobby reads from input. 
+                // Let's just run joinLobby()
+                joinLobby(isLocked); // Pass hint
+            } else {
+                joinLobby();
+            }
+        }
+
+        // --- HOST FUNCTIONS ---
+        function createRoom() {
+            console.log("Create Room clicked");
+            if (!socket) {
+                alert("Cannot connect to server. Is it running?");
+                return;
+            }
+            maxPlayers = parseInt(document.getElementById('room-capacity').value);
+            const pw = document.getElementById('room-password').value.trim();
+            const adminKey = window.currentAdminKey;
+
+            if (!adminKey) return alert("Admin Key session lost. Please reload and enter key.");
+
+            // Collect Quiz Data
+            const inputs = document.querySelectorAll('.quiz-item-data');
+            if (inputs.length > 0) {
+                quizData = [];
+                inputs.forEach((div, index) => {
+                    const correctRadio = div.querySelector(`input[name="q-${index}-correct"]:checked`);
+                    const correctVal = correctRadio ? parseInt(correctRadio.value) : 0;
+
+                    const qData = {
+                        q: div.querySelector('.q-in-text').value,
+                        image: div.querySelector('.q-in-img').value, // Scrape Image
+                        options: [
+                            div.querySelector('.q-in-o0').value,
+                            div.querySelector('.q-in-o1').value,
+                            div.querySelector('.q-in-o2').value,
+                            div.querySelector('.q-in-o3').value
+                        ],
+                        correct: correctVal
+                    };
+                    quizData.push(qData);
+                });
+            }
+
+            socket.emit('create_room', { capacity: maxPlayers, password: pw, adminKey: adminKey });
+        }
+
+        socket.on('room_created', (data) => {
+            isHost = true;
+            currentRoomId = data.roomId;
+            document.getElementById('host-id-display').innerText = currentRoomId;
+            document.getElementById('max-capacity-display').innerText = maxPlayers;
+
+            const link = window.location.protocol + "//" + window.location.host + "/?room=" + currentRoomId;
+            document.getElementById('invite-link-area').classList.remove('hidden');
+            document.getElementById('invite-link-input').value = link;
+
+            showScreen('screen-admin-lobby');
+        });
+
+        socket.on('player_joined', (data) => {
+            // Host logic: Add player to visual list
+            const div = document.createElement('div');
+            div.className = 'player-chip';
+            div.id = 'p-' + data.id;
+            div.innerText = data.name;
+            document.getElementById('player-list').appendChild(div);
+
+            players.push({ id: data.id, name: data.name, score: 0 });
+            updatePlayerCount();
+        });
+
+        socket.on('player_left', (data) => {
+            const chip = document.getElementById('p-' + data.id);
+            if (chip) chip.remove();
+            players = players.filter(p => p.id !== data.id);
+            updatePlayerCount();
+        });
+
+        socket.on('player_answer', (data) => {
+            // Host receives answer
+            const currentQ = quizData[currentQuestionIndex];
+            const p = players.find(x => x.id === data.playerId);
+            if (p) {
+                if (data.answer === currentQ.correct) {
+                    p.score += 1000;
+                }
+            }
+
+            const ansCount = document.getElementById('host-answers');
+            ansCount.innerText = parseInt(ansCount.innerText) + 1;
+        });
+
+        function updatePlayerCount() {
+            document.getElementById('player-count').innerText = players.length;
+        }
+
+        function copyInviteLink() {
+            const copyText = document.getElementById("invite-link-input");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+            alert("Copied Invite Link!");
+        }
+
+        // --- GAME LOOP HOST ---
+        let currentQuestionIndex = -1;
+
+        function startGame() {
+            if (players.length === 0) {
+                if (!confirm("No players connected. Start anyway?")) return;
+            }
+            socket.emit('host_game_start');
+            nextQuestion();
+            showScreen('screen-game-host');
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex >= quizData.length) {
+                endGameHost();
+                return;
+            }
+
+            const q = quizData[currentQuestionIndex];
+            document.getElementById('host-q-index').innerText = currentQuestionIndex + 1;
+            document.getElementById('host-q-text').innerText = q.q;
+            document.getElementById('host-answers').innerText = "0";
+
+            // Update Image
+            const imgEl = document.getElementById('host-q-img');
+            if (q.image) {
+                imgEl.src = q.image;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            // Broadcast Question
+            socket.emit('host_update_game', {
+                type: 'NEW_QUESTION',
+                q: q.q,
+                image: q.image, // Send Image
+                options: q.options,
+                qIndex: currentQuestionIndex
+            });
+        }
+
+        function endGameHost() {
+            // Calculate winner
+            let winner = "No one";
+            let maxScore = -1;
+
+            players.forEach(p => {
+                if (p.score > maxScore) {
+                    maxScore = p.score;
+                    winner = p.name;
+                }
+            });
+
+            socket.emit('host_update_game', { type: 'GAME_OVER', winner: winner, score: maxScore });
+            socket.emit('host_game_over');
+
+            // Show result
+            showScreen('screen-result');
+            document.getElementById('result-text').innerText = `Winner: ${winner} (${maxScore} pts)`;
+        }
+
+        // --- PLAYER FUNCTIONS ---
+        function joinLobby(knownLocked = false) {
+            const hostId = document.getElementById('join-pin').value.trim();
+            if (!hostId) return alert("Enter Host ID");
+
+            // We need to know if password is required.
+            // If user typed ID manually, we might not know 'knownLocked'.
+            // Simple approach: try to join, if server says "Locked/Need Password", ask for it?
+            // BUT server currently sends generic error or "Incorrect Password".
+            // Let's prompt if we *know* it's locked (from list click).
+
+            let password = null;
+            if (knownLocked) {
+                password = prompt("Enter Room Password:");
+                if (password === null) return; // Cancelled
+            }
+
+            // Store info for the nickname step
+            currentRoomId = hostId;
+            // Temporarily store PW to send with nickname?
+            // Actually, we send nickname AFTER checking room?
+            // The current flow is: Enter ID -> Screen Nickname -> Enter Nick -> Join Room.
+            // We should store the password in a variable to use it in 'sendNickname'.
+            window.tempRoomPassword = password;
+
+            showScreen('screen-player-lobby');
+        }
+
+        function sendNickname() {
+            const nick = document.getElementById('nickname').value;
+            if (!nick) return alert("Enter Nickname");
+
+            console.log("Sending/Ready clicked. Room:", currentRoomId, "Nick:", nick);
+            if (!currentRoomId) {
+                alert("Error: Room ID missing. Go back and join again.");
+                return;
+            }
+
+            socket.emit('join_room', { roomId: currentRoomId, nickname: nick, password: window.tempRoomPassword });
+        }
+
+        socket.on('joined_success', (data) => {
+            showScreen('screen-waiting');
+            document.getElementById('waiting-msg').innerText = "Waiting for game to start...";
+        });
+
+        socket.on('error_msg', (msg) => {
+            alert(msg);
+            showScreen('screen-entry');
+        });
+
+        function sendAnswer(idx) {
+            socket.emit('player_answer', { answer: idx });
+            showScreen('screen-waiting');
+            document.getElementById('waiting-msg').innerText = "Answer Sent! Waiting...";
+        }
+
+        // Global Game Listeners (Player)
+        socket.on('game_start', () => {
+            // Game started
+            showScreen('screen-waiting');
+            document.getElementById('waiting-msg').innerText = "Game Started! Get Ready!";
+        });
+
+        socket.on('game_update', (data) => {
+            if (data.type === 'NEW_QUESTION') {
+                showScreen('screen-game-player');
+                document.getElementById('player-q-text').innerText = data.q;
+                if (data.options) {
+                    document.getElementById('p-opt-0').innerText = data.options[0] || "";
+                    document.getElementById('p-opt-1').innerText = data.options[1] || "";
+                    document.getElementById('p-opt-2').innerText = data.options[2] || "";
+                    document.getElementById('p-opt-3').innerText = data.options[3] || "";
+                }
+
+                // Show/Hide Image
+                const playerImg = document.getElementById('player-q-img');
+                if (data.image) {
+                    playerImg.src = data.image;
+                    playerImg.style.display = 'block';
+                } else {
+                    playerImg.style.display = 'none';
+                }
+            }
+            if (data.type === 'GAME_OVER') {
+                showScreen('screen-result');
+                const myNick = document.getElementById('nickname').value;
+                document.getElementById('result-text').innerText =
+                    data.winner === myNick
+                        ? "YOU WON!"
+                        : `Winner: ${data.winner}`;
+            }
+        });
+
+        // Helper to convert file to base64
+        function fileToBase64(file, callback) {
+            const reader = new FileReader();
+            reader.onloadend = function () {
+                callback(reader.result);
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function handleImageUpload(input, idx) {
+            const file = input.files[0];
+            if (!file) return;
+
+            fileToBase64(file, (base64) => {
+                document.getElementById(`q-img-${idx}`).value = base64;
+                const preview = document.getElementById(`preview-img-${idx}`);
+                preview.src = base64;
+                preview.style.display = 'block';
+            });
+        }
+
+        // --- EDITOR UI LOGIC ---
+        function addQuestionRaw() {
+            const container = document.getElementById('editor-container');
+            const idx = container.children.length;
+
+            const div = document.createElement('div');
+            div.className = 'quiz-item quiz-item-data';
+            div.innerHTML = `
+                <b>Q${idx + 1}:</b> <input type="text" class="q-in-text" value="New Question?"><br>
+                
+                <!-- Image Upload -->
+                <div style="margin: 10px 0;">
+                    <label>Image (Optional):</label>
+                    <input type="file" accept="image/*" onchange="handleImageUpload(this, ${idx})">
+                    <input type="hidden" class="q-in-img" id="q-img-${idx}">
+                    <img id="preview-img-${idx}" style="max-height:100px; display:none; margin-top:5px; border:1px solid #555;">
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <input type="radio" name="q-${idx}-correct" value="0" checked style="width:20px; height:20px; margin-right:5px; accent-color:#ef4444; cursor:pointer;" title="Mark as Correct">
+                        <input type="text" class="q-in-o0" value="Opt A" style="background:#450a0a; color:white; border:1px solid #ef4444; flex-grow:1;">
+                    </div>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <input type="radio" name="q-${idx}-correct" value="1" style="width:20px; height:20px; margin-right:5px; accent-color:#3b82f6; cursor:pointer;" title="Mark as Correct">
+                            <input type="text" class="q-in-o1" value="Opt B" style="background:#172554; color:white; border:1px solid #3b82f6; flex-grow:1;">
+                        </div>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <input type="radio" name="q-${idx}-correct" value="2" style="width:20px; height:20px; margin-right:5px; accent-color:#eab308; cursor:pointer;" title="Mark as Correct">
+                            <input type="text" class="q-in-o2" value="Opt C" style="background:#422006; color:white; border:1px solid #eab308; flex-grow:1;">
+                        </div>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <input type="radio" name="q-${idx}-correct" value="3" style="width:20px; height:20px; margin-right:5px; accent-color:#22c55e; cursor:pointer;" title="Mark as Correct">
+                            <input type="text" class="q-in-o3" value="Opt D" style="background:#052e16; color:white; border:1px solid #22c55e; flex-grow:1;">
+                        </div>
+                    </div>
+            `;
+            container.appendChild(div);
+        }
+
+        // Add one initial empty question
+        addQuestionRaw();
+
+        // --- COMMUNITY HUB LOGIC ---
+        let publicQuizzesCache = [];
+
+        function showHomeScreen() {
+            showScreen('screen-home');
+            socket.emit('get_public_quizzes');
+        }
+
+        socket.on('public_quizzes_list', (quizzes) => {
+            publicQuizzesCache = quizzes; // Store for loading
+            const list = document.getElementById('public-quiz-list');
+            list.innerHTML = "";
+
+            if (quizzes.length === 0) {
+                list.innerHTML = "<div style='grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5); padding: 50px;'>No quizzes found. Be the first to publish one!</div>";
+                return;
+            }
+
+            quizzes.forEach(q => {
+                const el = document.createElement('div');
+                el.className = 'quiz-card';
+                el.innerHTML = `
+                    <h3>${q.title}</h3>
+                    <div class="quiz-meta">
+                        <span>by ${q.author}</span>
+                        <span>${q.questionCount} Qs</span>
+                    </div>
+                    <div class="card-actions">
+                         <button class="btn-primary" onclick="startSoloGame('${q.id}')">Play Solo</button>
+                         <button class="btn-secondary" onclick="loadQuiz('${q.id}')">Host (Key)</button>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        });
+
+        // --- SOLO GAME ENGINE ---
+        let soloState = {
+            score: 0,
+            qIndex: 0,
+            timer: 30,
+            interval: null,
+            quiz: [],
+            busy: false
+        };
+
+        function startSoloGame(id) {
+            const quiz = publicQuizzesCache.find(q => q.id === id);
+            if (!quiz) return alert("Error loading quiz");
+
+            soloState.quiz = quiz.data;
+            soloState.score = 0;
+            soloState.qIndex = -1;
+            soloState.busy = false;
+
+            showScreen('screen-game-solo');
+            nextSoloQuestion();
+        }
+
+        function nextSoloQuestion() {
+            soloState.qIndex++;
+            if (soloState.qIndex >= soloState.quiz.length) {
+                endSoloGame();
+                return;
+            }
+
+            const q = soloState.quiz[soloState.qIndex];
+            document.getElementById('solo-q-text').innerText = q.q;
+
+            // Update Image
+            const imgEl = document.getElementById('solo-q-img');
+            if (q.image) {
+                imgEl.src = q.image;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            document.getElementById('s-opt-0').innerText = q.options[0];
+            document.getElementById('s-opt-1').innerText = q.options[1];
+            document.getElementById('s-opt-2').innerText = q.options[2];
+            document.getElementById('s-opt-3').innerText = q.options[3]; // Fixed index
+
+            // Reset Timer
+            clearInterval(soloState.interval);
+            soloState.timer = 30;
+            document.getElementById('solo-timer').innerText = 30;
+            soloState.interval = setInterval(() => {
+                soloState.timer--;
+                document.getElementById('solo-timer').innerText = soloState.timer;
+                if (soloState.timer <= 0) {
+                    handleSoloAnswer(-1); // Time out
+                }
+            }, 1000);
+
+            soloState.busy = false;
+            document.getElementById('solo-feedback').style.display = 'none';
+        }
+
+        function handleSoloAnswer(ansIndex) {
+            if (soloState.busy) return;
+            soloState.busy = true;
+            clearInterval(soloState.interval);
+
+            const q = soloState.quiz[soloState.qIndex];
+            const feedback = document.getElementById('solo-feedback');
+
+            let isCorrect = (ansIndex === q.correct);
+            if (isCorrect) {
+                soloState.score += (1000 + soloState.timer * 10);
+                document.getElementById('solo-score').innerText = soloState.score;
+                feedback.innerText = "CORRECT!";
+                feedback.style.color = "#22c55e"; // Green
+            } else {
+                feedback.innerText = "WRONG!";
+                feedback.style.color = "#ef4444"; // Red
+            }
+            feedback.style.display = 'block';
+
+            setTimeout(() => {
+                nextSoloQuestion();
+            }, 1500);
+        }
+
+        function endSoloGame() {
+            showScreen('screen-result');
+            document.getElementById('result-text').innerText = `Your Score: ${soloState.score}`;
+        }
+
+        function publishQuiz() {
+            const title = document.getElementById('quiz-title').value.trim();
+            if (!title) return alert("Please enter a Quiz Title");
+
+            // Collect Data
+            const inputs = document.querySelectorAll('.quiz-item-data');
+            if (inputs.length === 0) return alert("Add at least one question");
+
+            let tempQuizData = [];
+            inputs.forEach((div, index) => {
+                const correctRadio = div.querySelector(`input[name="q-${index}-correct"]:checked`);
+                const correctVal = correctRadio ? parseInt(correctRadio.value) : 0;
+                tempQuizData.push({
+                    q: div.querySelector('.q-in-text').value,
+                    image: div.querySelector('.q-in-img').value, // Scrape Image
+                    options: [
+                        div.querySelector('.q-in-o0').value,
+                        div.querySelector('.q-in-o1').value,
+                        div.querySelector('.q-in-o2').value,
+                        div.querySelector('.q-in-o3').value
+                    ],
+                    correct: correctVal
+                });
+            });
+
+            socket.emit('publish_quiz', {
+                title: title,
+                author: document.getElementById('nickname').value || "Anonymous", // Try to grab nick if set
+                data: tempQuizData
+            });
+        }
+
+        socket.on('publish_success', () => {
+            alert("Quiz Published to Community!");
+            showHomeScreen();
+        });
+
+        function loadQuiz(id) {
+            const quiz = publicQuizzesCache.find(q => q.id === id);
+            if (!quiz) return alert("Quiz not found!");
+
+            const key = prompt("Enter Admin Key to HOST this quiz:");
+            if (key !== '1453') return alert("Incorrect Key. Hosting denied.");
+
+            if (confirm(`Host "${quiz.title}"?`)) {
+                quizData = quiz.data;
+                maxPlayers = 20; // Default
+                // We must pass the key here too
+                socket.emit('create_room', { capacity: maxPlayers, adminKey: key });
+            }
+        }
+
+    </script>
+</body>
+
+</html>
